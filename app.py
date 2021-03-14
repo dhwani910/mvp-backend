@@ -10,6 +10,7 @@ import datetime
 app = Flask(__name__)
 CORS(app)
 
+# ...connection to database...
 def connect():
     return mariadb.connect(
         user = dbcreds.user,
@@ -22,6 +23,7 @@ def connect():
 # # ...........................End Points For users................................................. 
 @app.route('/api/users', methods=['GET','POST', 'PATCH', 'DELETE'])
 
+# ....Get Users....
 def users():
     if request.method == 'GET':
         conn = None
@@ -68,6 +70,8 @@ def users():
                     mimetype="text/html",
                     status=500
                 ) 
+    # .....Sign Up....            
+   
     elif request.method == 'POST':
         conn = None
         cursor = None
@@ -119,6 +123,8 @@ def users():
                     mimetype="text/html",
                     status=500
                 ) 
+
+    # .......Edit User Details....            
     elif request.method == 'PATCH':
         conn = None
         cursor = None
@@ -181,6 +187,7 @@ def users():
                     mimetype="text/html",
                     status=500
                 )
+    # ........Delete User Profile....
     elif request.method == 'DELETE':
         conn = None
         cursor = None
@@ -236,6 +243,7 @@ def users():
 # # ...........................End Points For Login.................................................
 @app.route('/api/login', methods=['POST', 'DELETE'])
 
+# ......Sign In......
 def login():
     if request.method == 'POST':
         conn = None
@@ -289,6 +297,7 @@ def login():
                     mimetype="text/html",
                     status=500
                 )
+    # ......Sign Out.....
     elif request.method == 'DELETE':
         conn = None
         cursor = None
@@ -327,10 +336,150 @@ def login():
 # @app.route('/api/game', methods=['GET'])
 
 # def game():
-# # # ...........................End Points For game-like.................................................
-# @app.route('/api/game-like', methods=['GET', 'POST', 'DELETE'])
 
-# def game_like():
+
+# # # ...........................End Points For game-like.................................................
+@app.route('/api/game-like', methods=['GET', 'POST', 'DELETE'])
+
+# .....Get Likes For Game.....
+def game_like():
+    if request.method == "GET":
+        conn = None
+        cursor = None
+        game_likes =None
+        gameId = request.args.get("gameId")
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            cursor.execute("SELECT game_like.gameId, game_like.userId, user.username FROM game_like JOIN user ON game_like.userId = user.id WHERE game_like.gameId = ? ", [gameId])
+            game_likes = cursor.fetchall()
+            print(game_likes)
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (cursor != None):
+                conn.rollback()
+                conn.close()
+            if (game_likes != None):
+                results = []
+                for game_like in game_likes:
+                    likes_data = {
+                        "gameId": game_like[0],
+                        "userId": game_like[1],
+                        "username": game_like[2]
+                    }
+                    results.append(likes_data)
+                return Response(
+                    json.dumps(results, default=str),
+                    mimetype = "application/json",
+                    status=200
+                )
+            else:
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )
+# ......Like this Game....
+    elif request.method == "POST":
+        conn = None
+        cursor = None
+        results = None
+        gameId = request.json.get("gameId")
+        loginToken = request.json.get("loginToken")
+
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            new_like = cursor.fetchall()
+            print(new_like)
+            if (new_like[0][1] == loginToken):
+                cursor.execute("INSERT INTO game_like(gameId, userId) VALUES (?, ?)", [gameId, new_like[0][0]])
+                conn.commit()
+                results = cursor.rowcount
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                 cursor.close()
+            if (conn != None):
+                conn.rollback()
+                conn.close()
+            if (results != None):
+                return Response(
+                    "you liked this game!..",
+                    mimetype="application/json",
+                    status=200
+                )
+            else:
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )
+# .......Unlike This Game....
+    elif request.method == "DELETE":
+        conn = None
+        cursor = None
+        results = None
+        loginToken = request.json.get("loginToken")
+        gameId = request.json.get("gameId")
+
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            target = cursor.fetchall()
+            print(target)
+            if target[0][1] == loginToken:
+                cursor.execute("DELETE FROM game_like WHERE gameId = ? AND userID = ?", [gameId, target[0][0]])
+                conn.commit()
+                results = cursor.rowcount
+                print(results)
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (cursor != None):
+                conn.rollback()
+                conn.close()
+            if (results != None):
+                return Response(
+                    "you unlike this game!..",
+                    mimetype="text/html",
+                    status=204
+                )
+            else:
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # # # ...........................End Points For game-review.................................................
 # @app.route('/api/game-review', methods=['GET', 'POST','PATCH', 'DELETE'])
 
