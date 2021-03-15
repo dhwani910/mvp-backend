@@ -466,21 +466,211 @@ def game_like():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # # # ...........................End Points For game-review.................................................
-# @app.route('/api/game-review', methods=['GET', 'POST','PATCH', 'DELETE'])
+@app.route('/api/game-review', methods=['GET', 'POST','PATCH', 'DELETE'])
 
-# def game_review():
+# .....get reviews...
+def game_review():
+    if request.method == "GET":
+        conn = None
+        cursor = None
+        reviews = None
+        gameId = request.args.get("gameId")
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            if (gameId != "" and gameId != None):
+                cursor.execute("SELECT game_review.*, user.username FROM game_review JOIN user ON game_review.userId = user.id WHERE game_review.gameId = ?", [gameId])
+                reviews = cursor.fetchall()
+            elif (gameId == "" and gameId == None):
+                cursor.execute("SELECT * FROM game_review")
+                reviews = cursor.fetchall()
+                print(reviews)
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (conn != None):
+                conn.rollback()
+                conn.close()
+            if (reviews != None):
+                results = []
+                for review in reviews:
+                    result = {
+                        "reviewId": review[0],
+                        "gameId": review[1],
+                        "userId": review[2],
+                        "content": review[3],
+                        "createdAt": review[4],
+                        "username": review[5],
+                    }
+                    results.append(result)
+                return Response(
+                    json.dumps(results, default=str),
+                    mimetype="application/json",
+                    status=200
+                )
+            else:
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )
+
+# .......post new review for this game.....
+    elif request.method == "POST":
+        conn = None
+        cursor = None
+        results = None
+        target = None
+        new_reviewId = None
+        new_review = None
+        loginToken = request.json.get("loginToken")
+        gameId = request.json.get("gameId")
+        content = request.json.get("content")
+        createdAt = request.json.get("createdAt")
+
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            target = cursor.fetchall()
+            print(target)
+            results = cursor.rowcount
+            if (target[0][1] == loginToken):
+                cursor.execute("INSERT INTO game_review(content, createdAt, gameId, userId) VALUES(?, ?, ?, ?)", [content, createdAt, gameId, target[0][0]])
+                new_reviewId = cursor.lastrowid
+                conn.commit()
+                results = cursor.rowcount
+                cursor.execute("SELECT game_review.*, user.username FROM game_review JOIN user ON game_review.userId = user.id WHERE game_review.id = ?", [new_reviewId])
+                new_review = cursor.fetchall()
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (conn != None):
+                conn.rollback()
+                conn.close()
+            if (results == 1):
+                review_data = {
+                    "reviewId": new_reviewId,
+                    "gameId": gameId,
+                    "userId": target[0][0],
+                    "username": new_review[0][5],
+                    "content": content,
+                    "createdAt": createdAt
+                }
+                return Response(
+                    json.dumps(review_data, default=str),
+                    mimetype="application/json",
+                    status=200
+                )
+            else:
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )
+
+# ........edit review....
+    elif request.method == "PATCH":
+        conn = None
+        cursor = None
+        results = None
+        reviewId = request.json.get("reviewId")
+        content = request.json.get("content")
+        createdAt = request.json.get("createdAt")
+        loginToken = request.json.get("loginToken")
+
+        try:
+            conn = connect()
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            target = cursor.fetchall()
+            cursor.execute("SELECT userId FROM game_review WHERE id = ?", [reviewId])
+            review_target = cursor.fetchall()
+            print(target)
+            if target[0][1] == loginToken and target[0][0] == review_target[0][0]:
+                cursor.execute("UPDATE game_review SET content = ? WHERE id = ?", [content, reviewId])
+                conn.commit()
+                results = cursor.rowcount
+                print(results)
+            if (results != None):
+                cursor.execute("SELECT game_review.*, user.username FROM user JOIN game_review ON user.id = game_review.userId WHERE game_review.id = ?", [reviewId])
+                new_review = cursor.fetchall()
+                print(new_review)
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (conn != None):
+                conn.rollback()
+                conn.close()
+            if (results == 1):
+                newreview_data = {
+                    "reviewId": reviewId,
+                    "gameId": new_review[0][1],
+                    "userId": new_review[0][2],
+                    "username": new_review[0][5],
+                    "content": content,
+                    "createdAt": createdAt
+                }
+                return Response(
+                    json.dumps(newreview_data, default=str),
+                    mimetype="application/json",
+                    status=200
+                )
+            else:
+                return Response(
+                    "something wrong...",
+                    mimetype="text/html",
+                    status=500
+                )
+# .......Delete the review......
+    elif request.method == 'DELETE':
+        conn = None
+        cursor = None
+        results = None
+        loginToken = request.json.get("loginToken")
+        reviewId = request.json.get("reviewId")
+
+        try:
+            conn = connect()
+            cursor = conn.cursor()   
+            cursor.execute("SELECT * FROM user_session WHERE loginToken = ?", [loginToken])
+            target = cursor.fetchall()
+            print(target)
+            cursor.execute("SELECT userId FROM game_review WHERE id = ?", [reviewId])
+            review_target = cursor.fetchall()
+            if target[0][1] == loginToken and target[0][0] == review_target[0][0]:
+                cursor.execute("DELETE FROM game_review WHERE id = ?", [reviewId])
+                conn.commit()
+                results = cursor.rowcount
+                print(results)  
+        except Exception as ex:
+            print("error")
+            print(ex)
+        finally:
+            if (cursor != None):
+                cursor.close()
+            if (conn != None):
+                conn.rollback()
+                conn.close()
+            if (results != None):
+                return Response(
+                    "Deleted!...",
+                    mimetype = "text/html",
+                    status=204
+                ) 
+            else: 
+                return Response(
+                    "something wrong..",
+                    mimetype="text/html",
+                    status=500
+                )        
