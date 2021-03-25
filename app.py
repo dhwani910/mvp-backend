@@ -560,7 +560,7 @@ def game_review():
                     "reviewId": new_reviewId,
                     "gameId": gameId,
                     "userId": target[0][0],
-                    "username": new_review[0][5],
+                    # "username": new_review[0][5],
                     "content": content,
                     "createdAt": createdAt
                 }
@@ -594,6 +594,7 @@ def game_review():
             cursor.execute("SELECT userId FROM game_review WHERE id = ?", [reviewId])
             review_target = cursor.fetchall()
             print(target)
+            print(review_target)
             if target[0][1] == loginToken and target[0][0] == review_target[0][0]:
                 cursor.execute("UPDATE game_review SET content = ? WHERE id = ?", [content, reviewId])
                 conn.commit()
